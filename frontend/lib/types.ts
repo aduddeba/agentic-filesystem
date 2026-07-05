@@ -1,4 +1,4 @@
-export type Tool = "READ" | "SEARCH" | "WRITE";
+export type Tool = "READ" | "SEARCH" | "WRITE" | "CREATE" | "DELETE";
 
 export interface Activity {
   tool: Tool;
@@ -13,5 +13,5 @@ export interface SearchEntry {
 }
 
 export type TreeNode =
-  | { type: "folder"; name: string; depth: number; empty?: boolean }
+  | { type: "folder"; name: string; depth: number; path: string }
   | { type: "file"; name: string; depth: number; path: string };

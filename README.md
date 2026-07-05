@@ -314,7 +314,34 @@ Ready for search
 
 ---
 
+# Backend API
+
+Phase 1's REST API (FastAPI, under `/api`) performs CRUD against a sandboxed
+`backend/storage/` directory, with PostgreSQL tracking file/directory
+metadata (kept in sync via `reconcile()` after every mutation and on
+startup).
+
+| Method | Path                  | Purpose                                  |
+| ------ | --------------------- | ----------------------------------------- |
+| GET    | `/api/health`          | DB connectivity check                     |
+| GET    | `/api/files/tree`      | Flattened directory listing (live disk)   |
+| GET    | `/api/files/stats`     | File/directory counts, total size (DB)    |
+| GET    | `/api/files/content`   | Read a file's contents                    |
+| POST   | `/api/files`           | Create a file or directory                |
+| PUT    | `/api/files/content`   | Update a file's contents                  |
+| DELETE | `/api/files`           | Delete a file or directory (recursive)    |
+| PATCH  | `/api/files`           | Rename/move a file or directory           |
+| GET    | `/api/files/search`    | Search file contents under storage root   |
+
+---
+
 # Running Locally
+
+## Postgres
+
+```bash
+docker-compose up -d db   # or `docker compose up -d db` if you have the v2 plugin
+```
 
 ## Backend
 
@@ -327,6 +354,10 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
+cp .env.example .env
+
+alembic upgrade head
+
 uvicorn app.main:app --reload
 ```
 
@@ -338,6 +369,8 @@ uvicorn app.main:app --reload
 cd frontend
 
 npm install
+
+cp .env.example .env.local
 
 npm run dev
 ```

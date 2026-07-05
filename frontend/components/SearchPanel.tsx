@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { searchFiles } from "../lib/api";
 import type { SearchEntry } from "../lib/types";
 
 interface Props {
   hidden: boolean;
-  searchIndex: SearchEntry[];
   totalFiles: number;
   onLogSearch: (query: string, count: number) => void;
   onResultClick: (file: string, line: number) => void;
@@ -20,28 +20,47 @@ function highlightMatch(text: string, query: string): ReactNode[] {
   return parts.map((part, i) => (part.toLowerCase() === q.toLowerCase() ? <mark key={i}>{part}</mark> : part));
 }
 
-export default function SearchPanel({ hidden, searchIndex, totalFiles, onLogSearch, onResultClick }: Props) {
-  const [query, setQuery] = useState("def ");
+export default function SearchPanel({ hidden, totalFiles, onLogSearch, onResultClick }: Props) {
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState<SearchEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestId = useRef(0);
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    return searchIndex.filter((entry) => entry.text.toLowerCase().includes(q));
-  }, [query, searchIndex]);
+  function runSearch(value: string) {
+    const q = value.trim();
+    if (!q) {
+      setMatches([]);
+      setSearched(false);
+      return;
+    }
+
+    const id = ++requestId.current;
+    setLoading(true);
+    searchFiles(q)
+      .then((results) => {
+        if (id !== requestId.current) return;
+        setMatches(results);
+        setSearched(true);
+        onLogSearch(q, results.length);
+      })
+      .catch(() => {
+        if (id !== requestId.current) return;
+        setMatches([]);
+        setSearched(true);
+      })
+      .finally(() => {
+        if (id === requestId.current) setLoading(false);
+      });
+  }
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
     const value = e.target.value;
     setQuery(value);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const q = value.trim();
-      if (!q) return;
-      const qLower = q.toLowerCase();
-      const count = searchIndex.filter((entry) => entry.text.toLowerCase().includes(qLower)).length;
-      onLogSearch(q, count);
-    }, 500);
+    debounceRef.current = setTimeout(() => runSearch(value), 400);
   }
 
   const q = query.trim();
@@ -51,23 +70,22 @@ export default function SearchPanel({ hidden, searchIndex, totalFiles, onLogSear
     <div id="panelSearch" style={{ display: hidden ? "none" : "flex" }}>
       <div className="search-box">
         <input type="text" value={query} onChange={handleChange} placeholder="Search file contents…" autoComplete="off" />
-        <div className="search-note">
-          Searches the contents of the files in this workbench, same substring match the python fallback in{" "}
-          <b style={{ color: "var(--ink-soft)" }}>search.py</b> uses.
-        </div>
+        <div className="search-note">Searches file contents under storage/ via the backend search API.</div>
       </div>
 
       <div className="search-meta">
         {!q
-          ? "Type to search across the files in this workbench."
+          ? "Type to search across the files in storage/."
+          : loading
+          ? "Searching…"
           : matches.length
           ? `${matches.length} match${matches.length === 1 ? "" : "es"} in ${fileCount} file${fileCount === 1 ? "" : "s"}`
           : `No matches for "${query}".`}
       </div>
 
       <div className="pane-body">
-        {q && !matches.length && (
-          <div className="empty-state">Nothing found — the workbench only indexes the {totalFiles} files shown in Directory.</div>
+        {q && searched && !loading && !matches.length && (
+          <div className="empty-state">Nothing found — storage/ has {totalFiles} file{totalFiles === 1 ? "" : "s"}.</div>
         )}
         {matches.slice(0, 200).map((m, idx) => {
           const short = m.file.split("/").slice(-1)[0];

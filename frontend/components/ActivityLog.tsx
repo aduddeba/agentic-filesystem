@@ -14,7 +14,7 @@ export default function ActivityLog({ activities }: Props) {
         Activity
         <span className="live">
           <span className="live-dot" />
-          <small>watching backend/</small>
+          <small>watching storage/</small>
         </span>
       </div>
       <div className="pane-body">

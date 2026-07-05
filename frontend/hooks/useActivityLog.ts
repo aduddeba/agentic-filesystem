@@ -6,12 +6,11 @@ import type { Activity, Tool } from "../lib/types";
 function seedActivities(): Activity[] {
   const now = Date.now();
   return [
-    { tool: "READ", detail: "backend/tests/test_search.py", ts: now - (9 * 60 + 14) * 1000 },
+    { tool: "READ", detail: "tests/test_search.py", ts: now - (9 * 60 + 14) * 1000 },
     { tool: "SEARCH", detail: '"TODO" → 0 matches', ts: now - (6 * 60 + 2) * 1000 },
-    { tool: "WRITE", detail: ".gitignore", ts: now - (4 * 60 + 30) * 1000 },
-    { tool: "READ", detail: "backend/tools/filesystem/read.py", ts: now - (2 * 60 + 5) * 1000 },
+    { tool: "READ", detail: "tools/filesystem/read.py", ts: now - (2 * 60 + 5) * 1000 },
     { tool: "SEARCH", detail: '"def " → 8 matches', ts: now - 41 * 1000 },
-    { tool: "READ", detail: "backend/tools/filesystem/write.py", ts: now - 12 * 1000 },
+    { tool: "READ", detail: "tools/filesystem/write.py", ts: now - 12 * 1000 },
   ];
 }
 
