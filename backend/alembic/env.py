@@ -1,7 +1,14 @@
+import os
+import sys
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+# The `alembic` console script does not put the current working directory on
+# sys.path (unlike `python -m alembic`), so `app` and `tools` wouldn't be
+# importable without this regardless of where alembic is invoked from.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.config import settings
 from app.database import Base
