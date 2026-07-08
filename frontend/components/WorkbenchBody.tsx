@@ -82,7 +82,17 @@ export default function WorkbenchBody() {
         setContent(text);
         setScrollRequest(opts.scrollToLine ? { line: opts.scrollToLine, token: Date.now() } : null);
       })
-      .catch(() => setError(`Failed to load ${path}`))
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 404) {
+          setError(`${path} no longer exists — it may have been deleted outside the app.`);
+          setCurrentFile(null);
+          setContent(null);
+          refreshTree();
+          refreshStats();
+          return;
+        }
+        setError(`Failed to load ${path}`);
+      })
       .finally(() => setContentLoading(false));
   }
 
