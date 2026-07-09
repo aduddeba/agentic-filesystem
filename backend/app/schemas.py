@@ -43,3 +43,22 @@ class SearchMatchOut(BaseModel):
     path: str
     line: int
     text: str
+
+
+class SemanticMatchOut(BaseModel):
+    path: str
+    text: str
+    score: float
+
+
+class ReindexOut(BaseModel):
+    indexed: int
+    failed: int
+
+
+class SettingsOut(BaseModel):
+    storage_root: str
+
+
+class SettingsIn(BaseModel):
+    storage_root: str

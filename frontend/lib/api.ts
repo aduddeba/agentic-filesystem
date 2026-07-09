@@ -1,4 +1,4 @@
-import type { SearchEntry, TreeNode } from "./types";
+import type { SearchEntry, SemanticEntry, TreeNode } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -89,4 +89,30 @@ export function searchFiles(query: string): Promise<SearchEntry[]> {
   return request<{ path: string; line: number; text: string }[]>(
     `/api/files/search?q=${encodeURIComponent(query)}`
   ).then((matches) => matches.map((m) => ({ file: m.path, line: m.line, text: m.text })));
+}
+
+export function searchSemantic(query: string, mode: "hybrid" | "vector" = "hybrid"): Promise<SemanticEntry[]> {
+  return request<{ path: string; text: string; score: number }[]>(
+    `/api/files/search/semantic?q=${encodeURIComponent(query)}&mode=${mode}`
+  ).then((matches) => matches.map((m) => ({ file: m.path, text: m.text, score: m.score })));
+}
+
+export interface ReindexResult {
+  indexed: number;
+  failed: number;
+}
+
+export function reindexAll(): Promise<ReindexResult> {
+  return request<ReindexResult>("/api/files/reindex", { method: "POST" });
+}
+
+export function fetchSettings(): Promise<{ storage_root: string }> {
+  return request<{ storage_root: string }>("/api/settings");
+}
+
+export function updateStorageRoot(path: string): Promise<{ storage_root: string }> {
+  return request<{ storage_root: string }>("/api/settings", {
+    method: "PUT",
+    body: JSON.stringify({ storage_root: path }),
+  });
 }

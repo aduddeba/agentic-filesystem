@@ -1,9 +1,10 @@
 """REST endpoints for browsing and editing files under the storage root."""
 
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from tools.filesystem import delete as delete_tool
@@ -16,17 +17,22 @@ from tools.filesystem import write as write_tool
 
 from ..config import settings
 from ..database import get_db
+from ..indexing import index_file, index_pending, reindex_all
+from ..models import FileRecord
 from ..paths import resolve_path, to_relative
 from ..repository import get_stats, reconcile
 from ..schemas import (
     ContentIn,
     CreateIn,
     FileContentOut,
+    ReindexOut,
     RenameIn,
     SearchMatchOut,
+    SemanticMatchOut,
     StatsOut,
     TreeNodeOut,
 )
+from ..search import semantic_search
 
 router = APIRouter(prefix="/api")
 
@@ -79,6 +85,9 @@ def create_entry(body: CreateIn, db: Session = Depends(get_db)) -> TreeNodeOut:
         write_tool(str(target), body.content)
 
     reconcile(db)
+    if not is_dir:
+        record = db.scalar(select(FileRecord).where(FileRecord.path == to_relative(target)))
+        index_file(db, record)
     return _node_out(target, is_dir)
 
 
@@ -90,6 +99,8 @@ def update_file_content(body: ContentIn, path: str = Query(...), db: Session = D
 
     write_tool(str(target), body.content)
     reconcile(db)
+    record = db.scalar(select(FileRecord).where(FileRecord.path == to_relative(target)))
+    index_file(db, record)
     return _node_out(target, is_dir=False)
 
 
@@ -118,6 +129,7 @@ def rename_entry(body: RenameIn, db: Session = Depends(get_db)) -> TreeNodeOut:
         raise HTTPException(status_code=409, detail=f"Path already exists: {body.new_path}") from None
 
     reconcile(db)
+    index_pending(db)
     return _node_out(dst, is_dir)
 
 
@@ -128,3 +140,21 @@ def search_files(q: str = Query(...), path: str = Query("")) -> list[SearchMatch
     root = resolve_path(path)
     matches = search_tool(q, root=str(root))
     return [SearchMatchOut(path=to_relative(Path(m.file)), line=m.line, text=m.text) for m in matches]
+
+
+@router.get("/files/search/semantic", response_model=list[SemanticMatchOut])
+def search_semantic(
+    q: str = Query(...),
+    k: int = Query(10, ge=1, le=50),
+    mode: Literal["hybrid", "vector"] = Query("hybrid"),
+    db: Session = Depends(get_db),
+) -> list[SemanticMatchOut]:
+    if not q.strip():
+        return []
+    return semantic_search(db, q, k=k, mode=mode)
+
+
+@router.post("/files/reindex", response_model=ReindexOut)
+def reindex(db: Session = Depends(get_db)) -> ReindexOut:
+    reconcile(db)
+    return ReindexOut(**reindex_all(db))

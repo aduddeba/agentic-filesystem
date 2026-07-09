@@ -7,10 +7,13 @@ interface Props {
   currentFile: string | null;
   loading: boolean;
   fileCount: number;
+  storageRoot: string | null;
   onSelect: (path: string) => void;
   onCreateFile: () => void;
   onCreateFolder: () => void;
   onDelete: (path: string, isDir: boolean) => void;
+  onReindex: () => void;
+  onChangeStorageRoot: () => void;
 }
 
 export default function DirectoryTree({
@@ -18,22 +21,38 @@ export default function DirectoryTree({
   currentFile,
   loading,
   fileCount,
+  storageRoot,
   onSelect,
   onCreateFile,
   onCreateFolder,
   onDelete,
+  onReindex,
+  onChangeStorageRoot,
 }: Props) {
   return (
     <nav className="pane tree" aria-label="Directory">
       <div className="pane-head">
         Directory <small>{fileCount} files</small>
       </div>
+      {storageRoot && (
+        <button
+          type="button"
+          className="folder-path"
+          onClick={onChangeStorageRoot}
+          title={`${storageRoot} — click to change`}
+        >
+          {storageRoot}
+        </button>
+      )}
       <div className="tree-toolbar">
         <button type="button" className="btn" onClick={onCreateFile}>
           + File
         </button>
         <button type="button" className="btn" onClick={onCreateFolder}>
           + Folder
+        </button>
+        <button type="button" className="btn" onClick={onReindex} title="Re-embed all files for semantic search">
+          Reindex
         </button>
       </div>
       <div className="pane-body">

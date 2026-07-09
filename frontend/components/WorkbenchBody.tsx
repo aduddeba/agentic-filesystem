@@ -11,9 +11,12 @@ import {
   createEntry,
   deleteEntry,
   fetchFileContent,
+  fetchSettings,
   fetchStats,
   fetchTree,
+  reindexAll,
   updateFileContent,
+  updateStorageRoot,
 } from "../lib/api";
 import type { TreeNode } from "../lib/types";
 
@@ -32,6 +35,7 @@ export default function WorkbenchBody() {
   const [tab, setTab] = useState<"contents" | "search">("contents");
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [storageRoot, setStorageRoot] = useState<string | null>(null);
   const lastRead = useRef<{ path: string | null; ts: number }>({ path: null, ts: 0 });
   const { activities, log } = useActivityLog();
 
@@ -51,6 +55,9 @@ export default function WorkbenchBody() {
   useEffect(() => {
     setError(null);
     setTreeLoading(true);
+    fetchSettings()
+      .then((s) => setStorageRoot(s.storage_root))
+      .catch(() => {});
     refreshTree()
       .then((nodes) => {
         refreshStats();
@@ -111,6 +118,37 @@ export default function WorkbenchBody() {
     selectFile(path, { scrollToLine: line });
   }
 
+  function handleSemanticResultClick(path: string) {
+    selectFile(path);
+  }
+
+  function handleReindex() {
+    setError(null);
+    reindexAll()
+      .then(({ indexed, failed }) => {
+        log("REINDEX", `${indexed} indexed${failed ? `, ${failed} failed` : ""}`);
+        refreshStats();
+      })
+      .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to reindex"));
+  }
+
+  function handleChangeStorageRoot() {
+    const input = window.prompt("Storage folder (absolute path):", storageRoot ?? "");
+    if (!input?.trim() || input.trim() === storageRoot) return;
+    setError(null);
+
+    updateStorageRoot(input.trim())
+      .then((s) => {
+        setStorageRoot(s.storage_root);
+        setCurrentFile(null);
+        setContent(null);
+        log("SETTINGS", `Storage root → ${s.storage_root}`);
+        return refreshTree();
+      })
+      .then(() => refreshStats())
+      .catch((e) => setError(e instanceof ApiError ? e.message : "Failed to change storage folder"));
+  }
+
   function handleCreateFile() {
     const input = window.prompt("New file path (relative to storage/):");
     if (!input?.trim()) return;
@@ -166,10 +204,13 @@ export default function WorkbenchBody() {
         currentFile={currentFile}
         loading={treeLoading}
         fileCount={fileCount}
+        storageRoot={storageRoot}
         onSelect={(path) => selectFile(path)}
         onCreateFile={handleCreateFile}
         onCreateFolder={handleCreateFolder}
         onDelete={handleDelete}
+        onReindex={handleReindex}
+        onChangeStorageRoot={handleChangeStorageRoot}
       />
 
       <section className="pane stage">
@@ -203,6 +244,7 @@ export default function WorkbenchBody() {
           totalFiles={fileCount}
           onLogSearch={(query, count) => log("SEARCH", `"${query}" → ${count} match${count === 1 ? "" : "es"}`)}
           onResultClick={handleResultClick}
+          onSemanticResultClick={handleSemanticResultClick}
         />
       </section>
 

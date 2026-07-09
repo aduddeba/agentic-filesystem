@@ -1,4 +1,4 @@
-export type Tool = "READ" | "SEARCH" | "WRITE" | "CREATE" | "DELETE";
+export type Tool = "READ" | "SEARCH" | "WRITE" | "CREATE" | "DELETE" | "REINDEX" | "SETTINGS";
 
 export interface Activity {
   tool: Tool;
@@ -10,6 +10,12 @@ export interface SearchEntry {
   file: string;
   line: number;
   text: string;
+}
+
+export interface SemanticEntry {
+  file: string;
+  text: string;
+  score: number;
 }
 
 export type TreeNode =

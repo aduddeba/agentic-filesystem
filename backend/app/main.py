@@ -10,6 +10,7 @@ from .config import settings
 from .database import Base, SessionLocal, engine
 from .repository import reconcile
 from .routes.files import router
+from .routes.settings import router as settings_router
 
 
 @asynccontextmanager
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(router)
+app.include_router(settings_router)
 
 
 @app.get("/", include_in_schema=False)

@@ -11,6 +11,8 @@ export default function Header() {
         <span className="chip c-write">WRITE</span>
         <span className="chip c-create">CREATE</span>
         <span className="chip c-delete">DELETE</span>
+        <span className="chip c-reindex">REINDEX</span>
+        <span className="chip c-settings">SETTINGS</span>
       </div>
       <div className="meta">
         <b>aduddeba/agentic-filesystem</b> · main

@@ -18,6 +18,10 @@
   --tool-create-soft: #e3ede4;
   --tool-delete: #a3453a;
   --tool-delete-soft: #f4e2df;
+  --tool-reindex: #6f5f9e;
+  --tool-reindex-soft: #eae6f2;
+  --tool-settings: #3f8f95;
+  --tool-settings-soft: #e1f0ef;
   --ok: #4a7a52;
   --err: #a3453a;
   --shadow: 0 1px 2px rgba(20, 25, 22, 0.06), 0 4px 14px rgba(20, 25, 22, 0.05);
@@ -48,6 +52,10 @@
     --tool-create-soft: #1e2a20;
     --tool-delete: #d97a6c;
     --tool-delete-soft: #33221f;
+    --tool-reindex: #b3a3d9;
+    --tool-reindex-soft: #2a2438;
+    --tool-settings: #7fc9c4;
+    --tool-settings-soft: #1c2f2e;
     --ok: #7fbf88;
     --err: #d97a6c;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -73,6 +81,10 @@
   --tool-create-soft: #1e2a20;
   --tool-delete: #d97a6c;
   --tool-delete-soft: #33221f;
+  --tool-reindex: #b3a3d9;
+  --tool-reindex-soft: #2a2438;
+  --tool-settings: #7fc9c4;
+  --tool-settings-soft: #1c2f2e;
   --ok: #7fbf88;
   --err: #d97a6c;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -97,6 +109,10 @@
   --tool-create-soft: #e3ede4;
   --tool-delete: #a3453a;
   --tool-delete-soft: #f4e2df;
+  --tool-reindex: #6f5f9e;
+  --tool-reindex-soft: #eae6f2;
+  --tool-settings: #3f8f95;
+  --tool-settings-soft: #e1f0ef;
   --ok: #4a7a52;
   --err: #a3453a;
   --shadow: 0 1px 2px rgba(20, 25, 22, 0.06), 0 4px 14px rgba(20, 25, 22, 0.05);
@@ -195,6 +211,14 @@ header.bar {
   color: var(--tool-delete);
   background: var(--tool-delete-soft);
 }
+.chip.c-reindex {
+  color: var(--tool-reindex);
+  background: var(--tool-reindex-soft);
+}
+.chip.c-settings {
+  color: var(--tool-settings);
+  background: var(--tool-settings-soft);
+}
 .meta {
   font-family: var(--font-mono);
   font-size: 0.78rem;
@@ -266,6 +290,26 @@ header.bar {
 /* ---------- tree ---------- */
 nav.tree {
   background: var(--surface);
+}
+.folder-path {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 12px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.folder-path:hover {
+  background: var(--surface-2);
+  color: var(--ink-soft);
 }
 .tree-toolbar {
   display: flex;
@@ -532,6 +576,20 @@ section.stage {
   min-height: 0;
   flex: 1;
 }
+.search-mode {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+.search-mode .btn {
+  flex: 1;
+  padding: 5px 8px;
+}
+.search-mode .btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+}
 .search-box {
   padding: 12px 16px;
   border-bottom: 1px solid var(--line);
@@ -579,6 +637,8 @@ section.stage {
   outline-offset: -2px;
 }
 .result .rfile {
+  display: flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   color: var(--ink-soft);
@@ -587,6 +647,11 @@ section.stage {
 .result .rfile b {
   color: var(--accent);
   font-weight: 700;
+}
+.result .rscore {
+  margin-left: auto;
+  color: var(--ink-faint);
+  font-weight: 600;
 }
 .result .rtext {
   font-family: var(--font-mono);
@@ -668,6 +733,12 @@ ul.activity {
 .activity li[data-tool="DELETE"] {
   border-left-color: var(--tool-delete);
 }
+.activity li[data-tool="REINDEX"] {
+  border-left-color: var(--tool-reindex);
+}
+.activity li[data-tool="SETTINGS"] {
+  border-left-color: var(--tool-settings);
+}
 .a-row {
   display: flex;
   align-items: center;
@@ -700,6 +771,14 @@ ul.activity {
 [data-tool="DELETE"] .a-badge {
   color: var(--tool-delete);
   background: var(--tool-delete-soft);
+}
+[data-tool="REINDEX"] .a-badge {
+  color: var(--tool-reindex);
+  background: var(--tool-reindex-soft);
+}
+[data-tool="SETTINGS"] .a-badge {
+  color: var(--tool-settings);
+  background: var(--tool-settings-soft);
 }
 .a-time {
   font-family: var(--font-mono);
