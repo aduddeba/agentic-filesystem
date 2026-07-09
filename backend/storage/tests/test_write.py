@@ -1,6 +1,5 @@
 from tools.filesystem import write
 
-
 def test_writes_content_to_new_file(tmp_path):
     path = tmp_path / "note.txt"
 
