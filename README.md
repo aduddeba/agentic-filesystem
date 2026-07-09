@@ -23,6 +23,34 @@ The project is designed to run **entirely on your own computer** with **no paid 
 
 # Architecture
 
+The backend is mid-migration from a plain FastAPI app to an MCP-based
+multi-agent system. What's running today (Phases 1–2) is the left-hand side;
+the full design for where it's headed (Phases 3+) is written up in
+[`backend/docs/mcp_architecture.md`](backend/docs/mcp_architecture.md) and
+summarized below.
+
+## Current (Phases 1–2)
+
+```
+Next.js
+      │
+      ▼
+ FastAPI Backend (app/)
+      │
+ Routes call plain functions directly
+      │
+Indexing + Search (app/indexing.py, app/search.py)
+      │
+Tools (tools/filesystem, tools/documents, tools/embeddings)
+      │
+Filesystem + PostgreSQL + pgvector
+```
+
+There is no planner, agent, orchestrator, or LLM integration yet — routes in
+`app/routes/` call functions in `tools/*` directly.
+
+## Target (Phase 3+, MCP-based)
+
 ```
 Next.js
       │
@@ -35,10 +63,18 @@ Planner
       │
 Specialized Agents
       │
-Tool Execution Layer
+MCP Client → MCP Server Registry
+      │
+Filesystem / Search / Document / Embedding / Vector / Git / Python / Ollama servers
       │
 Filesystem + PostgreSQL + pgvector + Ollama
 ```
+
+Each tool namespace becomes its own long-lived MCP server process (Streamable
+HTTP), and agents/planner/orchestrator are only ever allowed to reach an
+implementation through `MCPClient.call_tool()` — never by importing a server
+module directly. See the design doc for the full rationale, folder layout,
+and milestone-by-milestone rollout.
 
 ---
 
@@ -81,6 +117,8 @@ Filesystem + PostgreSQL + pgvector + Ollama
 
 # Project Structure
 
+What's actually implemented today (Phases 1–2):
+
 ```
 agentic-filesystem/
 
@@ -93,40 +131,36 @@ frontend/
 
 backend/
 │
-├── api/
-├── agents/
-│   ├── planner/
-│   ├── search/
-│   ├── organization/
-│   ├── editing/
-│   ├── analysis/
-│   ├── coding/
-│   └── memory/
+├── app/
+│   ├── main.py            # FastAPI app, CORS, lifespan (reconcile on startup)
+│   ├── config.py          # env-driven settings, storage root
+│   ├── models.py          # FileRecord, Chunk (pgvector)
+│   ├── schemas.py
+│   ├── paths.py            # storage-root jail (resolve_path)
+│   ├── repository.py       # reconcile() DB <-> disk
+│   ├── indexing.py         # chunk + embed files, keep index in sync
+│   ├── search.py           # hybrid keyword + vector semantic_search()
+│   └── routes/
+│       ├── files.py
+│       └── settings.py
 │
 ├── tools/
-│   ├── filesystem/
-│   ├── embeddings/
-│   ├── database/
-│   ├── documents/
-│   └── search/
+│   ├── filesystem/          # read/write/delete/rename/search
+│   ├── documents/            # chunk_text, extract_metadata
+│   └── embeddings/           # sentence-transformers (BAAI/bge-small-en-v1.5)
 │
-├── workers/
-├── models/
-└── services/
-
-database/
-migrations/
-
-storage/
-uploads/
-cache/
-
-docker/
-
-docs/
-
-tests/
+├── alembic/
+├── docs/
+│   └── mcp_architecture.md  # design doc for the Phase 3+ MCP migration
+├── storage/
+└── tests/
 ```
+
+Phase 3+ introduces `agents/`, `planner/`, `orchestrator/`, `memory/`, and
+`mcp/` (client, registry, servers) per the target layout in
+[`backend/docs/mcp_architecture.md`](backend/docs/mcp_architecture.md#2-folder-structure) —
+`backend/tools/` is deleted once its contents move into each MCP server's
+`impl.py`.
 
 ---
 
@@ -277,61 +311,84 @@ Ready for search
 
 # Development Roadmap
 
-## Phase 1
+Phases 3+ follow the MCP migration plan in
+[`backend/docs/mcp_architecture.md`](backend/docs/mcp_architecture.md#11-roadmap),
+which breaks the old single "agent orchestration" phase into incremental
+milestones — each one ships with `docker compose up` and the full test suite
+still green, so the app is never left in a broken intermediate state.
+
+## Phase 1 — Done
 
 - File explorer
 - CRUD operations
 - PostgreSQL
 - REST API
 
-## Phase 2
+## Phase 2 — Done
 
 - File indexing
 - Metadata extraction
 - Embeddings
 - Semantic search
 
-## Phase 3
+## Phase 3 — MCP Foundation (design doc M0–M2)
 
-- Planner
-- Agent orchestration
-- Tool execution
-- Memory
+- MCP client pool + server registry, zero servers registered (no behavior change)
+- Filesystem MCP server (wraps existing `tools/filesystem/*`)
+- Search, Document, Embedding, and Vector MCP servers (wrap existing `tools/*`)
+- Import-graph lint in CI enforcing agents/planner/orchestrator never import `mcp/servers/**`
 
-## Phase 4
+## Phase 4 — Planning & Orchestration (M3–M4)
 
-- Document editing
-- Folder organization
-- Automation
-- Background workers
+- Ollama MCP server (`llm.chat`, `.generate`, `.embed`, `.summarize`, `.classify`)
+- Planner v0: fixed single-tool plans, proving Plan → execute → result end to end
+- Real LLM-driven planning (`Planner.plan()` via `llm.chat` + `ToolCatalog`)
+- Orchestrator wired to the Planner and a first agent (SearchAgent), `/api/tasks` endpoint
 
-## Phase 5
+## Phase 5 — Full Agent Suite & Memory (M5)
 
-- Multi-step reasoning
-- Long-term memory
-- Workflow automation
-- Plugin system
+- OrganizationAgent, EditingAgent, AnalysisAgent, CodingAgent
+- `memory/` store (recent tasks, preferences, file history)
+- Orchestrator consults Memory before planning, records after
+
+## Phase 6 — Coding Agent & Sandboxing (M6)
+
+- Git MCP server (status/diff/commit/history/branch)
+- Python MCP server, sandboxed in its own process/container with resource limits
+- CodingAgent goes live against both
+
+## Phase 7 — Cutover & Cleanup (M7)
+
+- Re-point `app/routes/files.py` at the Orchestrator (or retire it in favor of the task endpoint)
+- Delete `backend/tools/` once nothing imports it
+- Fold the old `app/` package into `api/`, `shared/`, `database/`
 
 ---
 
 # Backend API
 
-Phase 1's REST API (FastAPI, under `/api`) performs CRUD against a sandboxed
-`backend/storage/` directory, with PostgreSQL tracking file/directory
+The REST API (FastAPI, under `/api`) performs CRUD against a sandboxed,
+user-configurable storage root, with PostgreSQL tracking file/directory
 metadata (kept in sync via `reconcile()` after every mutation and on
-startup).
+startup). Phase 2 adds background indexing: every create/write/rename
+triggers `index_file`/`index_pending`, which chunks text and generates
+embeddings for semantic search.
 
-| Method | Path                  | Purpose                                  |
-| ------ | --------------------- | ----------------------------------------- |
-| GET    | `/api/health`          | DB connectivity check                     |
-| GET    | `/api/files/tree`      | Flattened directory listing (live disk)   |
-| GET    | `/api/files/stats`     | File/directory counts, total size (DB)    |
-| GET    | `/api/files/content`   | Read a file's contents                    |
-| POST   | `/api/files`           | Create a file or directory                |
-| PUT    | `/api/files/content`   | Update a file's contents                  |
-| DELETE | `/api/files`           | Delete a file or directory (recursive)    |
-| PATCH  | `/api/files`           | Rename/move a file or directory           |
-| GET    | `/api/files/search`    | Search file contents under storage root   |
+| Method | Path                       | Purpose                                       |
+| ------ | -------------------------- | ---------------------------------------------- |
+| GET    | `/api/health`               | DB connectivity check                          |
+| GET    | `/api/files/tree`           | Flattened directory listing (live disk)        |
+| GET    | `/api/files/stats`          | File/directory counts, total size (DB)         |
+| GET    | `/api/files/content`        | Read a file's contents                         |
+| POST   | `/api/files`                | Create a file or directory                     |
+| PUT    | `/api/files/content`        | Update a file's contents                       |
+| DELETE | `/api/files`                | Delete a file or directory (recursive)         |
+| PATCH  | `/api/files`                | Rename/move a file or directory                |
+| GET    | `/api/files/search`         | Keyword search under storage root (ripgrep)    |
+| GET    | `/api/files/search/semantic`| Hybrid keyword + vector semantic search         |
+| POST   | `/api/files/reindex`        | Re-chunk and re-embed every indexed file        |
+| GET    | `/api/settings`             | Read the current storage root                   |
+| PUT    | `/api/settings`             | Change the storage root (reconciles + reindexes)|
 
 ---
 
