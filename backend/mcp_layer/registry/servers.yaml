@@ -1,0 +1,31 @@
+# Static registry of MCP servers: where each one lives and how to reach it.
+#
+# Nothing in the running FastAPI app calls these yet (that starts in M4, when
+# the Orchestrator/Planner dispatch through MCPClientPool) -- this file, plus
+# `python -m mcp_layer.servers.<name>.server`, is enough to run and exercise
+# each server standalone or via `scripts/mcp_roundtrip.py`.
+#
+# Docker wiring for these deliberately isn't included yet: the backend itself
+# still runs locally via `uvicorn` (see the README), so these point at
+# localhost ports rather than docker-compose service names.
+servers:
+  - name: filesystem
+    url: http://127.0.0.1:8801/mcp
+    transport: streamable-http
+    health: /healthz
+  - name: search
+    url: http://127.0.0.1:8802/mcp
+    transport: streamable-http
+    health: /healthz
+  - name: documents
+    url: http://127.0.0.1:8803/mcp
+    transport: streamable-http
+    health: /healthz
+  - name: embeddings
+    url: http://127.0.0.1:8804/mcp
+    transport: streamable-http
+    health: /healthz
+  - name: vectors
+    url: http://127.0.0.1:8805/mcp
+    transport: streamable-http
+    health: /healthz
