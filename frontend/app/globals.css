@@ -22,6 +22,8 @@
   --tool-reindex-soft: #eae6f2;
   --tool-settings: #3f8f95;
   --tool-settings-soft: #e1f0ef;
+  --tool-task: #4a5a9e;
+  --tool-task-soft: #e3e5f2;
   --ok: #4a7a52;
   --err: #a3453a;
   --shadow: 0 1px 2px rgba(20, 25, 22, 0.06), 0 4px 14px rgba(20, 25, 22, 0.05);
@@ -56,6 +58,8 @@
     --tool-reindex-soft: #2a2438;
     --tool-settings: #7fc9c4;
     --tool-settings-soft: #1c2f2e;
+    --tool-task: #9aa8e0;
+    --tool-task-soft: #242940;
     --ok: #7fbf88;
     --err: #d97a6c;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -85,6 +89,8 @@
   --tool-reindex-soft: #2a2438;
   --tool-settings: #7fc9c4;
   --tool-settings-soft: #1c2f2e;
+  --tool-task: #9aa8e0;
+  --tool-task-soft: #242940;
   --ok: #7fbf88;
   --err: #d97a6c;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
@@ -113,6 +119,8 @@
   --tool-reindex-soft: #eae6f2;
   --tool-settings: #3f8f95;
   --tool-settings-soft: #e1f0ef;
+  --tool-task: #4a5a9e;
+  --tool-task-soft: #e3e5f2;
   --ok: #4a7a52;
   --err: #a3453a;
   --shadow: 0 1px 2px rgba(20, 25, 22, 0.06), 0 4px 14px rgba(20, 25, 22, 0.05);
@@ -218,6 +226,10 @@ header.bar {
 .chip.c-settings {
   color: var(--tool-settings);
   background: var(--tool-settings-soft);
+}
+.chip.c-task {
+  color: var(--tool-task);
+  background: var(--tool-task-soft);
 }
 .meta {
   font-family: var(--font-mono);
@@ -482,6 +494,11 @@ section.stage {
 .btn.primary:hover {
   filter: brightness(1.05);
 }
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
 .saved-flag {
   font-size: 0.75rem;
   color: var(--ok);
@@ -674,6 +691,38 @@ section.stage {
   font-family: var(--font-serif);
 }
 
+/* tasks panel */
+#panelTasks {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#panelTasks .search-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+#panelTasks .result {
+  cursor: default;
+}
+#panelTasks .result:hover {
+  background: var(--surface);
+}
+.result[data-task-status="completed"] .rfile b {
+  color: var(--ok);
+}
+.result[data-task-status="failed"] .rfile b {
+  color: var(--err);
+}
+.result[data-task-status="partial"] .rfile b {
+  color: var(--accent);
+}
+.result[data-task-status="failed"] .rscore {
+  color: var(--err);
+}
+
 /* ---------- activity log ---------- */
 aside.log {
   background: var(--surface);
@@ -739,6 +788,9 @@ ul.activity {
 .activity li[data-tool="SETTINGS"] {
   border-left-color: var(--tool-settings);
 }
+.activity li[data-tool="TASK"] {
+  border-left-color: var(--tool-task);
+}
 .a-row {
   display: flex;
   align-items: center;
@@ -779,6 +831,10 @@ ul.activity {
 [data-tool="SETTINGS"] .a-badge {
   color: var(--tool-settings);
   background: var(--tool-settings-soft);
+}
+[data-tool="TASK"] .a-badge {
+  color: var(--tool-task);
+  background: var(--tool-task-soft);
 }
 .a-time {
   font-family: var(--font-mono);

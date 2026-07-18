@@ -1,4 +1,4 @@
-import type { SearchEntry, SemanticEntry, TreeNode } from "./types";
+import type { SearchEntry, SemanticEntry, TaskOutcome, TaskStatus, TreeNode } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -104,6 +104,43 @@ export interface ReindexResult {
 
 export function reindexAll(): Promise<ReindexResult> {
   return request<ReindexResult>("/api/files/reindex", { method: "POST" });
+}
+
+interface TaskStepDto {
+  tool: string;
+  arguments: Record<string, unknown>;
+  is_error: boolean;
+  result: Record<string, unknown> | null;
+  error_message: string | null;
+}
+
+interface TaskOutDto {
+  task: string;
+  status: TaskStatus;
+  message: string;
+  steps: TaskStepDto[];
+}
+
+function toTaskOutcome(dto: TaskOutDto): TaskOutcome {
+  return {
+    task: dto.task,
+    status: dto.status,
+    message: dto.message,
+    steps: dto.steps.map((s) => ({
+      tool: s.tool,
+      arguments: s.arguments,
+      isError: s.is_error,
+      result: s.result,
+      errorMessage: s.error_message,
+    })),
+  };
+}
+
+export function submitTask(task: string): Promise<TaskOutcome> {
+  return request<TaskOutDto>("/api/tasks", {
+    method: "POST",
+    body: JSON.stringify({ task }),
+  }).then(toTaskOutcome);
 }
 
 export function fetchSettings(): Promise<{ storage_root: string }> {

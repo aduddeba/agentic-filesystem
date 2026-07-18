@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import DirectoryTree from "./DirectoryTree";
 import ContentsPanel from "./ContentsPanel";
 import SearchPanel from "./SearchPanel";
+import TasksPanel from "./TasksPanel";
 import ActivityLog from "./ActivityLog";
 import { useActivityLog } from "../hooks/useActivityLog";
 import {
@@ -18,7 +19,7 @@ import {
   updateFileContent,
   updateStorageRoot,
 } from "../lib/api";
-import type { TreeNode } from "../lib/types";
+import type { TaskStatus, TreeNode } from "../lib/types";
 
 interface ScrollRequest {
   line: number;
@@ -32,7 +33,7 @@ export default function WorkbenchBody() {
   const [currentFile, setCurrentFile] = useState<string | null>(null);
   const [content, setContent] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
-  const [tab, setTab] = useState<"contents" | "search">("contents");
+  const [tab, setTab] = useState<"contents" | "search" | "tasks">("contents");
   const [scrollRequest, setScrollRequest] = useState<ScrollRequest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [storageRoot, setStorageRoot] = useState<string | null>(null);
@@ -120,6 +121,10 @@ export default function WorkbenchBody() {
 
   function handleSemanticResultClick(path: string) {
     selectFile(path);
+  }
+
+  function handleLogTask(task: string, status: TaskStatus) {
+    log("TASK", `"${task}" → ${status}`);
   }
 
   function handleReindex() {
@@ -221,6 +226,9 @@ export default function WorkbenchBody() {
           <button type="button" className="tab" role="tab" aria-selected={tab === "search"} onClick={() => setTab("search")}>
             Search
           </button>
+          <button type="button" className="tab" role="tab" aria-selected={tab === "tasks"} onClick={() => setTab("tasks")}>
+            Tasks
+          </button>
         </div>
 
         {error && <div className="empty-state">{error}</div>}
@@ -246,6 +254,8 @@ export default function WorkbenchBody() {
           onResultClick={handleResultClick}
           onSemanticResultClick={handleSemanticResultClick}
         />
+
+        <TasksPanel hidden={tab !== "tasks"} onLogTask={handleLogTask} />
       </section>
 
       <ActivityLog activities={activities} />
