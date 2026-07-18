@@ -1,6 +1,6 @@
-"""Throwaway smoke test for the M1/M2 MCP servers.
+"""Throwaway smoke test for the M1-M3 MCP servers.
 
-Boots all 5 servers in-process (Streamable HTTP, via `uvicorn.Server` in
+Boots all 6 servers in-process (Streamable HTTP, via `uvicorn.Server` in
 background threads on the ports in `mcp_layer/registry/servers.yaml`), then
 calls one tool on each through a real `MCPClientPool` -- proving the round
 trip end to end exactly the way the design doc's M1 milestone asks for.
@@ -9,9 +9,9 @@ Run from `backend/`:
     python -m scripts.mcp_roundtrip
 
 `embeddings`/`vectors` calls need sentence-transformers/torch installed and
-(for `vectors`) a reachable Postgres+pgvector -- if either is missing, those
-two lines report [FAIL] with the underlying error instead of the whole
-script aborting.
+(for `vectors`) a reachable Postgres+pgvector; `ollama.*` needs a local
+`ollama serve` with `llama3.2:1b` pulled -- if any is missing, that line
+reports [FAIL] with the underlying error instead of the whole script aborting.
 """
 
 import asyncio
@@ -26,6 +26,7 @@ from mcp_layer.registry.registry import ServerRegistry
 from mcp_layer.servers.documents.server import app as documents_app
 from mcp_layer.servers.embeddings.server import app as embeddings_app
 from mcp_layer.servers.filesystem.server import app as filesystem_app
+from mcp_layer.servers.ollama.server import app as ollama_app
 from mcp_layer.servers.search.server import app as search_app
 from mcp_layer.servers.vectors.server import app as vectors_app
 
@@ -35,6 +36,7 @@ APPS = {
     "documents": (documents_app, 8803),
     "embeddings": (embeddings_app, 8804),
     "vectors": (vectors_app, 8805),
+    "ollama": (ollama_app, 8808),
 }
 
 # One tool call per server that should succeed against whatever's already in
@@ -45,6 +47,7 @@ CALLS = [
     ("document.chunk", {"text": "hello there general kenobi", "chunk_size": 2, "overlap": 0}),
     ("embedding.query", {"text": "hello"}),
     ("semantic.search", {"query": "hello"}),
+    ("llm.chat", {"messages": [{"role": "user", "content": "say hi in 3 words"}]}),
 ]
 
 
@@ -70,7 +73,7 @@ async def _wait_healthy(port: int, timeout: float = 10.0) -> None:
 
 
 async def main() -> None:
-    print("Booting all 5 MCP servers...")
+    print("Booting all 6 MCP servers...")
     servers = [_serve(app, port) for app, port in APPS.values()]
     for _name, port in APPS.values():
         await _wait_healthy(port)

@@ -439,10 +439,24 @@ npm run dev
 ```bash
 ollama serve
 
-ollama pull llama3.1
-
-ollama pull bge-m3
+ollama pull llama3.2:1b   # chat/planning model -- small and fast for local dev
+ollama pull all-minilm    # embedding model
 ```
+
+Swap in larger models (e.g. `llama3.1`, `bge-m3`) via `OLLAMA_CHAT_MODEL` /
+`OLLAMA_EMBED_MODEL` in `.env` if you want better quality over speed.
+
+To exercise the planner/orchestrator end to end, also start the MCP server
+cluster and the backend in separate terminals:
+
+```bash
+cd backend
+python -m scripts.run_mcp_servers   # boots all 6 MCP servers on 8801-8808
+uvicorn app.main:app --reload       # in another terminal
+```
+
+`POST /api/tasks` only needs the cluster running; the rest of the API
+(file browsing, keyword/semantic search) works without it.
 
 ---
 

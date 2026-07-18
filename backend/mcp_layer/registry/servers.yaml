@@ -1,9 +1,11 @@
 # Static registry of MCP servers: where each one lives and how to reach it.
 #
-# Nothing in the running FastAPI app calls these yet (that starts in M4, when
-# the Orchestrator/Planner dispatch through MCPClientPool) -- this file, plus
-# `python -m mcp_layer.servers.<name>.server`, is enough to run and exercise
-# each server standalone or via `scripts/mcp_roundtrip.py`.
+# As of M4, `app/mcp_runtime.py` lazily starts an MCPClientPool against this
+# registry the first time POST /api/tasks is called (the Orchestrator/Planner
+# dispatch through it) -- the rest of the app never touches it. This file,
+# plus `python -m mcp_layer.servers.<name>.server` (or
+# `scripts/run_mcp_servers.py` to boot all of them at once), is enough to run
+# and exercise each server standalone or via `scripts/mcp_roundtrip.py`.
 #
 # Docker wiring for these deliberately isn't included yet: the backend itself
 # still runs locally via `uvicorn` (see the README), so these point at
@@ -27,5 +29,9 @@ servers:
     health: /healthz
   - name: vectors
     url: http://127.0.0.1:8805/mcp
+    transport: streamable-http
+    health: /healthz
+  - name: ollama
+    url: http://127.0.0.1:8808/mcp
     transport: streamable-http
     health: /healthz

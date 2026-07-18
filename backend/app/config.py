@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     storage_root: str = DEFAULT_STORAGE_ROOT
     cors_origins: str = "http://localhost:3000"
 
+    ollama_host: str = "http://localhost:11434"
+    ollama_chat_model: str = "llama3.2:1b"
+    ollama_embed_model: str = "all-minilm"
+    planner_max_steps: int = 8
+    planner_max_replans: int = 2
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property

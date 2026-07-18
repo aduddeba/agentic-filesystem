@@ -23,7 +23,7 @@ def test_missing_yaml_file_is_also_an_empty_registry(tmp_path):
 
 def test_registry_loads_the_real_servers_yaml():
     names = {server.name for server in ServerRegistry().servers()}
-    assert names == {"filesystem", "search", "documents", "embeddings", "vectors"}
+    assert names == {"filesystem", "search", "documents", "embeddings", "vectors", "ollama"}
 
 
 def _write_registry_yaml(tmp_path, *, include_unreachable: bool) -> ServerRegistry:

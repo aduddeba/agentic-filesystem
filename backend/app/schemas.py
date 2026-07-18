@@ -62,3 +62,22 @@ class SettingsOut(BaseModel):
 
 class SettingsIn(BaseModel):
     storage_root: str
+
+
+class TaskIn(BaseModel):
+    task: str
+
+
+class TaskStepOut(BaseModel):
+    tool: str
+    arguments: dict
+    is_error: bool
+    result: dict | None = None
+    error_message: str | None = None
+
+
+class TaskOut(BaseModel):
+    task: str
+    status: Literal["completed", "partial", "failed"]
+    message: str
+    steps: list[TaskStepOut]
