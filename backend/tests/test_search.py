@@ -142,6 +142,33 @@ def test_uses_ripgrep_when_available(tmp_path, monkeypatch):
     assert "rg" in calls
 
 
+def test_matches_filename_even_without_content_hit(tmp_path, force_backend):
+    (tmp_path / "README.md").write_text("# Agentic AI File System\n\nOverview.", encoding="utf-8")
+    (tmp_path / "other.txt").write_text("unrelated content", encoding="utf-8")
+
+    matches = search("README", str(tmp_path))
+
+    assert any(m.file.endswith("README.md") for m in matches)
+
+
+def test_filename_match_is_case_insensitive(tmp_path, force_backend):
+    (tmp_path / "README.md").write_text("nothing relevant", encoding="utf-8")
+
+    matches = search("readme", str(tmp_path))
+
+    assert any(m.file.endswith("README.md") for m in matches)
+
+
+def test_filename_match_not_duplicated_when_content_also_matches(tmp_path, force_backend):
+    (tmp_path / "needle.txt").write_text("needle in a haystack\n", encoding="utf-8")
+
+    matches = search("needle", str(tmp_path))
+
+    assert len(matches) == 1
+    assert matches[0].line == 1
+    assert "needle in a haystack" in matches[0].text
+
+
 def test_python_fallback_used_when_ripgrep_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(search_module.shutil, "which", lambda _: None)
     called = {"ripgrep": False}

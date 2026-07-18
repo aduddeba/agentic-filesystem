@@ -51,7 +51,7 @@ def semantic_search(
     if mode == "vector":
         return _dedupe_by_path(vector_hits, k)
 
-    return _hybrid_fuse(vector_hits, query, k)
+    return _hybrid_fuse(db, vector_hits, query, k)
 
 
 def _dedupe_by_path(vector_hits: list[tuple[FileRecord, Chunk, float]], k: int) -> list[SemanticMatchOut]:
@@ -67,7 +67,39 @@ def _dedupe_by_path(vector_hits: list[tuple[FileRecord, Chunk, float]], k: int) 
     return results
 
 
-def _hybrid_fuse(vector_hits: list[tuple[FileRecord, Chunk, float]], query: str, k: int) -> list[SemanticMatchOut]:
+def _filename_search(db: Session, query: str) -> list[tuple[str, str]]:
+    """Rank indexed files whose *name* (not content) matches `query`.
+
+    Neither the vector signal (embeds chunk content only) nor the keyword
+    signal (ripgrep over file contents only) ever considers a file's own
+    name, so a query that's literally a filename -- e.g. "README" -- would
+    otherwise get no credit for the file it's naming. Exact/prefix name
+    matches are ranked above plain substring matches.
+    """
+    query_lower = query.strip().lower()
+    if not query_lower:
+        return []
+
+    records = db.scalars(select(FileRecord).where(FileRecord.is_dir.is_(False))).all()
+    matches = [record for record in records if query_lower in record.name.lower()]
+
+    def rank_key(record: FileRecord) -> tuple[int, int]:
+        name_lower = record.name.lower()
+        if name_lower == query_lower:
+            tier = 0
+        elif name_lower.startswith(query_lower):
+            tier = 1
+        else:
+            tier = 2
+        return (tier, len(record.name))
+
+    matches.sort(key=rank_key)
+    return [(record.path, record.name) for record in matches]
+
+
+def _hybrid_fuse(
+    db: Session, vector_hits: list[tuple[FileRecord, Chunk, float]], query: str, k: int
+) -> list[SemanticMatchOut]:
     vector_rank: dict[str, tuple[int, str]] = {}
     for rank, (record, chunk, _distance) in enumerate(vector_hits):
         if record.path not in vector_rank:
@@ -79,17 +111,28 @@ def _hybrid_fuse(vector_hits: list[tuple[FileRecord, Chunk, float]], query: str,
         if path not in keyword_rank:
             keyword_rank[path] = (rank, match.text)
 
+    filename_rank: dict[str, tuple[int, str]] = {}
+    for rank, (path, name) in enumerate(_filename_search(db, query)):
+        if path not in filename_rank:
+            filename_rank[path] = (rank, name)
+
     fused: dict[str, float] = {}
     for path, (rank, _snippet) in vector_rank.items():
         fused[path] = fused.get(path, 0.0) + 1 / (_RRF_K + rank + 1)
     for path, (rank, _snippet) in keyword_rank.items():
+        fused[path] = fused.get(path, 0.0) + 1 / (_RRF_K + rank + 1)
+    for path, (rank, _snippet) in filename_rank.items():
         fused[path] = fused.get(path, 0.0) + 1 / (_RRF_K + rank + 1)
 
     ranked_paths = sorted(fused, key=lambda p: fused[p], reverse=True)[:k]
     return [
         SemanticMatchOut(
             path=path,
-            text=vector_rank[path][1] if path in vector_rank else keyword_rank[path][1],
+            text=(
+                vector_rank[path][1]
+                if path in vector_rank
+                else keyword_rank[path][1] if path in keyword_rank else filename_rank[path][1]
+            ),
             score=fused[path],
         )
         for path in ranked_paths

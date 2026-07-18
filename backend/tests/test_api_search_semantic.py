@@ -67,6 +67,19 @@ def test_hybrid_mode_surfaces_exact_keyword_hit(pg_client):
     assert any(r["path"] == "log.txt" for r in results)
 
 
+def test_hybrid_mode_surfaces_filename_match(pg_client):
+    pg_client.post(
+        "/api/files", json={"path": "README.md", "type": "file", "content": "# Agentic AI File System\n\nProject overview."}
+    )
+    pg_client.post(
+        "/api/files", json={"path": "unrelated.txt", "type": "file", "content": "nothing to do with the query"}
+    )
+
+    results = pg_client.get("/api/files/search/semantic", params={"q": "README", "mode": "hybrid"}).json()
+
+    assert any(r["path"] == "README.md" for r in results)
+
+
 def test_semantic_search_blank_query_returns_empty_list(pg_client):
     response = pg_client.get("/api/files/search/semantic", params={"q": "  "})
 
