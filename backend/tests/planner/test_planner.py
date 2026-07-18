@@ -36,6 +36,24 @@ class _FakeCatalog:
         return "search.keyword: keyword search\n  input: {}"
 
 
+def test_plan_fixed_builds_single_step_plan_without_any_llm_call():
+    client = _FakeClient(chat_content="should never be read")
+    planner = Planner(client)
+
+    plan = planner.plan_fixed("search.keyword", {"query": "TODO"})
+
+    assert plan.steps == [PlanStep(tool="search.keyword", arguments={"query": "TODO"})]
+    assert client.calls == []
+
+
+def test_plan_fixed_defaults_arguments_to_empty_dict():
+    planner = Planner(_FakeClient())
+
+    plan = planner.plan_fixed("filesystem.list")
+
+    assert plan.steps == [PlanStep(tool="filesystem.list", arguments={})]
+
+
 @pytest.mark.anyio
 async def test_plan_parses_valid_json_into_plan():
     plan_json = Plan(goal="find todos", steps=[PlanStep(tool="search.keyword", arguments={"query": "TODO"})])

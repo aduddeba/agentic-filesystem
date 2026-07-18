@@ -331,19 +331,19 @@ still green, so the app is never left in a broken intermediate state.
 - Embeddings
 - Semantic search
 
-## Phase 3 — MCP Foundation (design doc M0–M2)
+## Phase 3 — Done (MCP Foundation, design doc M0–M2)
 
-- MCP client pool + server registry, zero servers registered (no behavior change)
+- MCP client pool + server registry
 - Filesystem MCP server (wraps existing `tools/filesystem/*`)
 - Search, Document, Embedding, and Vector MCP servers (wrap existing `tools/*`)
-- Import-graph lint in CI enforcing agents/planner/orchestrator never import `mcp/servers/**`
+- Import-graph lint in CI enforcing agents/planner/orchestrator never import `mcp_layer/servers/**`
 
-## Phase 4 — Planning & Orchestration (M3–M4)
+## Phase 4 — Done (Planning & Orchestration, M3–M4)
 
 - Ollama MCP server (`llm.chat`, `.generate`, `.embed`, `.summarize`, `.classify`)
-- Planner v0: fixed single-tool plans, proving Plan → execute → result end to end
-- Real LLM-driven planning (`Planner.plan()` via `llm.chat` + `ToolCatalog`)
-- Orchestrator wired to the Planner and a first agent (SearchAgent), `/api/tasks` endpoint
+- Planner v0: fixed single-tool plans (`Planner.plan_fixed()`), proving Plan → execute → result end to end without an LLM in the loop
+- Real LLM-driven planning (`Planner.plan()` via `llm.chat` + `ToolCatalog`), with bounded re-planning on step failure and an LLM verification pass
+- Orchestrator wired to the Planner and a first agent (SearchAgent), `POST /api/tasks` endpoint (frontend: the "Tasks" panel), MCP client pool started lazily on first use so the rest of the app works with none of the 6 servers running
 
 ## Phase 5 — Full Agent Suite & Memory (M5)
 

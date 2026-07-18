@@ -56,6 +56,9 @@ class _FakePlanner:
         assert self.verification is not None
         return self.verification
 
+    def plan_fixed(self, tool: str, arguments: dict | None = None) -> Plan:
+        return Plan(goal=f"Run {tool} directly", steps=[PlanStep(tool=tool, arguments=arguments or {})])
+
 
 @pytest.mark.anyio
 async def test_run_task_executes_plan_end_to_end_via_search_agent():
@@ -130,6 +133,37 @@ async def test_run_task_replans_on_failure_up_to_max_replans():
 
     assert planner.replan_calls == 2
     assert outcome.status == "failed"
+
+
+@pytest.mark.anyio
+async def test_run_task_with_fixed_tool_skips_llm_entirely_on_success():
+    client = _FakeClient(responses={"search.keyword": {"matches": [{"path": "a.txt"}]}})
+    planner = _FakePlanner()
+    orchestrator = Orchestrator(client=client, tool_catalog=object(), planner=planner, agents=[SearchAgent()])
+
+    outcome = await orchestrator.run_task(
+        "run search directly", fixed_tool="search.keyword", fixed_arguments={"query": "TODO"}
+    )
+
+    assert outcome.status == "completed"
+    assert outcome.verification is None
+    assert planner.plan_calls == 0
+    assert planner.replan_calls == 0
+    assert client.calls == ["search.keyword"]
+
+
+@pytest.mark.anyio
+async def test_run_task_with_fixed_tool_reports_failure_without_replanning():
+    planner = _FakePlanner()
+    orchestrator = Orchestrator(
+        client=_FakeClient(), tool_catalog=object(), planner=planner, agents=[SearchAgent()], max_replans=2
+    )
+
+    outcome = await orchestrator.run_task("run filesystem.write directly", fixed_tool="filesystem.write")
+
+    assert outcome.status == "failed"
+    assert planner.replan_calls == 0
+    assert "no agent" in outcome.step_results[0].error_message
 
 
 @pytest.mark.anyio

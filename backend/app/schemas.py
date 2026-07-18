@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class TreeNodeOut(BaseModel):
@@ -65,7 +65,9 @@ class SettingsIn(BaseModel):
 
 
 class TaskIn(BaseModel):
-    task: str
+    task: str = ""
+    tool: str | None = None
+    arguments: dict = Field(default_factory=dict)
 
 
 class TaskStepOut(BaseModel):

@@ -7,7 +7,7 @@ or record to it -- that's added in M5 without changing this class's shape.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 from agents.base import Agent, StepResult
 from mcp_layer.client.pool import MCPClientPool
@@ -45,7 +45,12 @@ class Orchestrator:
         self._max_steps = max_steps
         self._max_replans = max_replans
 
-    async def run_task(self, task: str) -> TaskOutcome:
+    async def run_task(
+        self, task: str, *, fixed_tool: str | None = None, fixed_arguments: dict[str, Any] | None = None
+    ) -> TaskOutcome:
+        if fixed_tool is not None:
+            return await self._run_fixed_plan(task, fixed_tool, fixed_arguments)
+
         try:
             plan = await self._planner.plan(task, self._tool_catalog)
         except PlanningError as exc:
@@ -80,6 +85,20 @@ class Orchestrator:
         message = verification.notes if verification is not None else "verification unavailable"
         return TaskOutcome(
             task=task, status=status, plan=plan, step_results=results, verification=verification, message=message
+        )
+
+    async def _run_fixed_plan(self, task: str, tool: str, arguments: dict[str, Any] | None) -> TaskOutcome:
+        """The M3 "Planner v0" path: a single-step Plan built directly (no LLM call anywhere
+        in this path -- no planning, no replanning, no verification), proving Plan -> execute
+        -> result end to end. Useful on its own too, as a reliable way to run one known tool
+        call through the same allow-list-enforced Orchestrator/Agent machinery."""
+        plan = self._planner.plan_fixed(tool, arguments)
+        results = await self._execute_steps(plan.steps)
+        result = results[0]
+        status: TaskStatus = "failed" if result.is_error else "completed"
+        message = result.error_message if result.is_error else "ok"
+        return TaskOutcome(
+            task=task, status=status, plan=plan, step_results=results, verification=None, message=message or "ok"
         )
 
     async def _execute_steps(self, steps: list[PlanStep]) -> list[StepResult]:

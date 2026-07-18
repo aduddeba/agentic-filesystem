@@ -36,8 +36,10 @@ class _FakeOutcome:
 class _FakeOrchestrator:
     def __init__(self, outcome: _FakeOutcome) -> None:
         self.outcome = outcome
+        self.calls: list[dict] = []
 
-    async def run_task(self, task: str) -> _FakeOutcome:
+    async def run_task(self, task: str, *, fixed_tool: str | None = None, fixed_arguments: dict | None = None):
+        self.calls.append({"task": task, "fixed_tool": fixed_tool, "fixed_arguments": fixed_arguments})
         self.outcome.task = task
         return self.outcome
 
@@ -95,3 +97,25 @@ def test_create_task_returns_503_when_orchestrator_unavailable(client, monkeypat
     response = client.post("/api/tasks", json={"task": "find TODOs"})
 
     assert response.status_code == 503
+
+
+def test_create_task_with_tool_bypasses_planning(client, monkeypatch):
+    outcome = _FakeOutcome(task="", status="completed", message="ok")
+    fake = _FakeOrchestrator(outcome)
+
+    async def fake_get_orchestrator():
+        return fake
+
+    monkeypatch.setattr(tasks_module, "get_orchestrator", fake_get_orchestrator)
+
+    response = client.post("/api/tasks", json={"tool": "search.keyword", "arguments": {"query": "TODO"}})
+
+    assert response.status_code == 200
+    assert fake.calls[0]["fixed_tool"] == "search.keyword"
+    assert fake.calls[0]["fixed_arguments"] == {"query": "TODO"}
+
+
+def test_create_task_rejects_empty_task_and_tool(client, monkeypatch):
+    response = client.post("/api/tasks", json={})
+
+    assert response.status_code == 400

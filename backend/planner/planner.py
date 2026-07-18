@@ -10,12 +10,13 @@ is just another MCP client.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from agents.base import StepResult
 from mcp_layer.client.pool import MCPClientPool
 from mcp_layer.registry.catalog import ToolCatalog
 
-from .plan import Plan, PlanningError, VerificationOutcome
+from .plan import Plan, PlanningError, PlanStep, VerificationOutcome
 from .prompts import build_planning_prompt, build_replan_prompt, build_verification_prompt
 
 
@@ -23,6 +24,17 @@ class Planner:
     def __init__(self, client: MCPClientPool, chat_model: str | None = None) -> None:
         self._client = client
         self._model = chat_model
+
+    def plan_fixed(self, tool: str, arguments: dict[str, Any] | None = None) -> Plan:
+        """Build a single-step Plan directly, with no LLM call at all.
+
+        This is the M3 "Planner v0" path (`mcp_architecture.md` #11): it proves
+        the Plan -> execute -> result pipeline independent of model behavior,
+        and doubles as a real, reliable way to run one known tool call through
+        the Orchestrator/Agent machinery (allow-list enforcement, verification)
+        without paying for or depending on an LLM call.
+        """
+        return Plan(goal=f"Run {tool} directly", steps=[PlanStep(tool=tool, arguments=arguments or {})])
 
     async def plan(self, task: str, tool_catalog: ToolCatalog) -> Plan:
         messages = build_planning_prompt(task, tool_catalog.as_planner_context())
