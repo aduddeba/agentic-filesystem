@@ -722,6 +722,60 @@ section.stage {
 .result[data-task-status="failed"] .rscore {
   color: var(--err);
 }
+.task-args {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+.task-error {
+  color: var(--err);
+}
+.task-matches,
+.task-matches-empty {
+  margin-top: 4px;
+}
+.task-matches {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.task-matches li {
+  border-left: 2px solid var(--line);
+  padding-left: 8px;
+}
+.task-match-path {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+.task-match-meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  margin-left: 6px;
+}
+.task-match-text {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  white-space: pre;
+  overflow-x: auto;
+}
+.task-matches-empty {
+  font-size: 0.82rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.task-result-json {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
 
 /* ---------- activity log ---------- */
 aside.log {

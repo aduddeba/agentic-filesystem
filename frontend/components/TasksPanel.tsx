@@ -20,6 +20,46 @@ function formatValue(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
+function formatArguments(args: Record<string, unknown>): string {
+  const entries = Object.entries(args);
+  if (entries.length === 0) return "(no arguments)";
+  return entries.map(([key, value]) => `${key}: ${formatValue(value)}`).join(", ");
+}
+
+interface MatchEntry {
+  path?: string;
+  line?: number;
+  text?: string;
+  score?: number;
+}
+
+function isMatchList(result: Record<string, unknown> | null): result is { matches: MatchEntry[] } {
+  return !!result && Array.isArray((result as { matches?: unknown }).matches);
+}
+
+function renderStepResult(result: Record<string, unknown> | null) {
+  if (result === null) return null;
+
+  if (isMatchList(result)) {
+    const matches = result.matches;
+    if (matches.length === 0) return <div className="task-matches-empty">No matches.</div>;
+    return (
+      <ul className="task-matches">
+        {matches.map((m, i) => (
+          <li key={i}>
+            <span className="task-match-path">{m.path ?? "(unknown path)"}</span>
+            {typeof m.line === "number" && <span className="task-match-meta">:{m.line}</span>}
+            {typeof m.score === "number" && <span className="task-match-meta">{m.score.toFixed(2)}</span>}
+            {m.text && <div className="task-match-text">{m.text}</div>}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return <pre className="task-result-json">{JSON.stringify(result, null, 2)}</pre>;
+}
+
 export default function TasksPanel({ hidden, onLogTask }: Props) {
   const [task, setTask] = useState("");
   const [loading, setLoading] = useState(false);
@@ -108,10 +148,12 @@ export default function TasksPanel({ hidden, onLogTask }: Props) {
                 <b>{step.tool}</b>
                 <span className="rscore">{step.isError ? "error" : "ok"}</span>
               </div>
-              <div className="rtext">
-                {formatValue(step.arguments)}
-                {step.isError ? `\n\n${step.errorMessage ?? "unknown error"}` : step.result ? `\n\n${formatValue(step.result)}` : ""}
-              </div>
+              <div className="rtext task-args">{formatArguments(step.arguments)}</div>
+              {step.isError ? (
+                <div className="rtext task-error">{step.errorMessage ?? "unknown error"}</div>
+              ) : (
+                renderStepResult(step.result)
+              )}
             </div>
           ))}
 
