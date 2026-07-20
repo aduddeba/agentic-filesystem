@@ -7,6 +7,7 @@ since the structure is fixed and short.
 from __future__ import annotations
 
 from agents.base import StepResult
+from memory.schemas import MemoryContext
 
 from .plan import Plan
 
@@ -27,10 +28,27 @@ VERIFICATION_SYSTEM_PROMPT = (
 )
 
 
-def build_planning_prompt(task: str, tools_context: str) -> list[dict[str, str]]:
+def _render_memory_context(memory_context: MemoryContext | None) -> str:
+    if memory_context is None:
+        return ""
+    blocks = []
+    if memory_context.recent_tasks:
+        blocks.append("Recent tasks:\n" + "\n".join(f"- {t}" for t in memory_context.recent_tasks))
+    if memory_context.preferences:
+        prefs = "\n".join(f"- {k}: {v}" for k, v in memory_context.preferences.items())
+        blocks.append(f"User preferences:\n{prefs}")
+    return ("\n\n".join(blocks) + "\n\n") if blocks else ""
+
+
+def build_planning_prompt(
+    task: str, tools_context: str, memory_context: MemoryContext | None = None
+) -> list[dict[str, str]]:
     return [
         {"role": "system", "content": PLANNING_SYSTEM_PROMPT},
-        {"role": "user", "content": f"Available tools:\n{tools_context}\n\nTask: {task}"},
+        {
+            "role": "user",
+            "content": f"Available tools:\n{tools_context}\n\n{_render_memory_context(memory_context)}Task: {task}",
+        },
     ]
 
 

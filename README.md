@@ -345,11 +345,12 @@ still green, so the app is never left in a broken intermediate state.
 - Real LLM-driven planning (`Planner.plan()` via `llm.chat` + `ToolCatalog`), with bounded re-planning on step failure and an LLM verification pass
 - Orchestrator wired to the Planner and a first agent (SearchAgent), `POST /api/tasks` endpoint (frontend: the "Tasks" panel), MCP client pool started lazily on first use so the rest of the app works with none of the 6 servers running
 
-## Phase 5 — Full Agent Suite & Memory (M5)
+## Phase 5 — Done (Full Agent Suite & Memory, M5)
 
-- OrganizationAgent, EditingAgent, AnalysisAgent, CodingAgent
-- `memory/` store (recent tasks, preferences, file history)
-- Orchestrator consults Memory before planning, records after
+- OrganizationAgent, EditingAgent, AnalysisAgent live (registered in the Orchestrator's agent list); CodingAgent is defined and fully tested but stays dormant — it needs the Git/Python MCP servers, which are M6
+- `memory/` store (`TaskRecord`, `FileHistoryEntry`, `Preference`; Alembic migration `0003`) — recent-task history and per-file history are read/written, preferences are read-only until something writes to them in a later phase
+- Orchestrator loads recent tasks + preferences into the Planner's prompt before every LLM-planned run, and records the outcome (+ any files touched) to Memory after every run, success or failure
+- Fixed a latent bug surfaced by this work: an unregistered tool name (e.g. `git.*`/`python.*` before M6) now fails as a clean per-step error instead of an unhandled 500
 
 ## Phase 6 — Coding Agent & Sandboxing (M6)
 

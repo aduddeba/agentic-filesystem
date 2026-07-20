@@ -1,7 +1,5 @@
-"""Orchestrator -- receives a task, calls the Planner, dispatches steps to Agents.
-
-Memory (`mcp_architecture.md` M5) doesn't exist yet, so this doesn't consult
-or record to it -- that's added in M5 without changing this class's shape.
+"""Orchestrator -- receives a task, calls the Planner, dispatches steps to Agents,
+consults Memory before planning and records to it after every run.
 """
 
 from __future__ import annotations
@@ -12,6 +10,8 @@ from typing import Any, Literal
 from agents.base import Agent, StepResult
 from mcp_layer.client.pool import MCPClientPool
 from mcp_layer.registry.catalog import ToolCatalog
+from memory.schemas import MemoryContext
+from memory.store import MUTATING_FILESYSTEM_TOOLS, MemoryStore
 from planner.plan import Plan, PlanningError, PlanStep, VerificationOutcome
 from planner.planner import Planner
 
@@ -37,6 +37,7 @@ class Orchestrator:
         agents: list[Agent],
         max_steps: int = 8,
         max_replans: int = 2,
+        memory: MemoryStore | None = None,
     ) -> None:
         self._client = client
         self._tool_catalog = tool_catalog
@@ -44,19 +45,25 @@ class Orchestrator:
         self._agents = agents
         self._max_steps = max_steps
         self._max_replans = max_replans
+        self._memory = memory
 
     async def run_task(
         self, task: str, *, fixed_tool: str | None = None, fixed_arguments: dict[str, Any] | None = None
     ) -> TaskOutcome:
         if fixed_tool is not None:
-            return await self._run_fixed_plan(task, fixed_tool, fixed_arguments)
+            outcome = await self._run_fixed_plan(task, fixed_tool, fixed_arguments)
+            self._record_to_memory(outcome)
+            return outcome
 
+        memory_context = self._load_memory_context()
         try:
-            plan = await self._planner.plan(task, self._tool_catalog)
+            plan = await self._planner.plan(task, self._tool_catalog, memory_context)
         except PlanningError as exc:
-            return TaskOutcome(
+            outcome = TaskOutcome(
                 task=task, status="failed", plan=None, step_results=[], verification=None, message=str(exc)
             )
+            self._record_to_memory(outcome)
+            return outcome
 
         results = await self._execute_steps(plan.steps[: self._max_steps])
 
@@ -77,9 +84,11 @@ class Orchestrator:
             # a "satisfied: true" answer to the task from its own knowledge, which looks
             # like a successful run but did none of the requested work.
             message = "The plan had no steps to execute" if not results else "No step completed successfully"
-            return TaskOutcome(
+            outcome = TaskOutcome(
                 task=task, status="failed", plan=plan, step_results=results, verification=None, message=message
             )
+            self._record_to_memory(outcome)
+            return outcome
 
         try:
             verification = await self._planner.verify(task, results)
@@ -88,9 +97,32 @@ class Orchestrator:
 
         status: TaskStatus = "completed" if verification is not None and verification.satisfied else "partial"
         message = verification.notes if verification is not None else "verification unavailable"
-        return TaskOutcome(
+        outcome = TaskOutcome(
             task=task, status=status, plan=plan, step_results=results, verification=verification, message=message
         )
+        self._record_to_memory(outcome)
+        return outcome
+
+    def _load_memory_context(self) -> MemoryContext | None:
+        if self._memory is None:
+            return None
+        recent = self._memory.recent_tasks()
+        return MemoryContext(
+            recent_tasks=[f"{record.task} -> {record.summary}" for record in recent],
+            preferences=self._memory.preferences(),
+        )
+
+    def _record_to_memory(self, outcome: TaskOutcome) -> None:
+        if self._memory is None:
+            return
+        file_deltas = [
+            path
+            for result in outcome.step_results
+            if not result.is_error and result.step.tool in MUTATING_FILESYSTEM_TOOLS
+            for path in (result.step.arguments.get("path"), result.step.arguments.get("new_path"))
+            if path
+        ]
+        self._memory.record_task(outcome.task, outcome.message, file_deltas, status=outcome.status)
 
     @staticmethod
     def _any_succeeded(results: list[StepResult]) -> bool:

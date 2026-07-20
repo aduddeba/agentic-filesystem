@@ -15,6 +15,7 @@ from typing import Any
 from agents.base import StepResult
 from mcp_layer.client.pool import MCPClientPool
 from mcp_layer.registry.catalog import ToolCatalog
+from memory.schemas import MemoryContext
 
 from .plan import Plan, PlanningError, PlanStep, VerificationOutcome
 from .prompts import build_planning_prompt, build_replan_prompt, build_verification_prompt
@@ -36,8 +37,8 @@ class Planner:
         """
         return Plan(goal=f"Run {tool} directly", steps=[PlanStep(tool=tool, arguments=arguments or {})])
 
-    async def plan(self, task: str, tool_catalog: ToolCatalog) -> Plan:
-        messages = build_planning_prompt(task, tool_catalog.as_planner_context())
+    async def plan(self, task: str, tool_catalog: ToolCatalog, memory_context: MemoryContext | None = None) -> Plan:
+        messages = build_planning_prompt(task, tool_catalog.as_planner_context(), memory_context)
         return await self._draft(messages)
 
     async def replan(self, task: str, tool_catalog: ToolCatalog, plan: Plan, results: list[StepResult]) -> Plan:

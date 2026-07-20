@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.config import settings
 from app.database import Base
 from app.models import FileRecord  # noqa: F401  (registers the model on Base.metadata)
+from memory.models import FileHistoryEntry, Preference, TaskRecord  # noqa: F401  (ditto)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

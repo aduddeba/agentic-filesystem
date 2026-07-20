@@ -59,6 +59,20 @@ async def test_call_tool_raises_tool_error_on_failure(two_server_registry):
 
 
 @pytest.mark.anyio
+async def test_call_tool_raises_tool_error_for_an_unregistered_tool_name(two_server_registry):
+    """A tool name no server exposes (e.g. a `git.*`/`python.*` call before those servers
+    exist) must surface as a ToolError, not a bare KeyError from the catalog lookup."""
+    pool = MCPClientPool(two_server_registry)
+    await pool.start()
+    try:
+        with pytest.raises(ToolError) as exc_info:
+            await pool.call_tool("git.status", {})
+        assert exc_info.value.tool == "git.status"
+    finally:
+        await pool.stop()
+
+
+@pytest.mark.anyio
 async def test_start_stop_are_no_ops_on_an_empty_registry(tmp_path):
     empty_yaml = tmp_path / "servers.yaml"
     empty_yaml.write_text("servers: []\n", encoding="utf-8")

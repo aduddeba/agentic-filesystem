@@ -56,7 +56,10 @@ class MCPClientPool:
 
     async def call_tool(self, tool_name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
         """Resolve `tool_name` -> owning server via ToolCatalog, then `session.call_tool()`."""
-        spec = self.catalog.get(tool_name)
+        try:
+            spec = self.catalog.get(tool_name)
+        except KeyError:
+            raise ToolError(server="unknown", tool=tool_name, message="no MCP server registers this tool") from None
         session = self._sessions[spec.server]
         result = await session.call_tool(tool_name, arguments or {})
 

@@ -15,13 +15,18 @@ from __future__ import annotations
 
 import asyncio
 
+from agents.analysis_agent import AnalysisAgent
+from agents.editing_agent import EditingAgent
+from agents.organization_agent import OrganizationAgent
 from agents.search_agent import SearchAgent
 from mcp_layer.client.pool import MCPClientPool
 from mcp_layer.registry.registry import ServerRegistry
+from memory.store import MemoryStore
 from orchestrator.orchestrator import Orchestrator
 from planner.planner import Planner
 
 from .config import settings
+from .database import SessionLocal
 
 _pool: MCPClientPool | None = None
 _orchestrator: Orchestrator | None = None
@@ -52,13 +57,18 @@ async def get_orchestrator() -> Orchestrator:
             raise
 
         planner = Planner(pool, chat_model=settings.ollama_chat_model)
+        memory = MemoryStore(SessionLocal)
         orchestrator = Orchestrator(
             client=pool,
             tool_catalog=pool.catalog,
             planner=planner,
-            agents=[SearchAgent()],
+            # CodingAgent is intentionally excluded -- it's defined and tested (agents/
+            # coding_agent.py) but its git.*/python.* tools have no MCP server yet
+            # ("CodingAgent goes live" is M6, per the README/design doc roadmap).
+            agents=[SearchAgent(), OrganizationAgent(), EditingAgent(), AnalysisAgent()],
             max_steps=settings.planner_max_steps,
             max_replans=settings.planner_max_replans,
+            memory=memory,
         )
         _pool, _orchestrator = pool, orchestrator
         return orchestrator

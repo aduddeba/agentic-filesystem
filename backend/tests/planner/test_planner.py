@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from agents.base import StepResult
+from memory.schemas import MemoryContext
 from planner.plan import Plan, PlanningError, PlanStep
 from planner.planner import Planner
 
@@ -65,6 +66,35 @@ async def test_plan_parses_valid_json_into_plan():
     assert plan.goal == "find todos"
     assert plan.steps == [PlanStep(tool="search.keyword", arguments={"query": "TODO"})]
     assert client.calls[0][0] == "llm.chat"
+
+
+@pytest.mark.anyio
+async def test_plan_renders_memory_context_into_the_prompt_when_provided():
+    plan_json = Plan(goal="find todos", steps=[])
+    client = _FakeClient(chat_content=plan_json.model_dump_json())
+    planner = Planner(client)
+    memory_context = MemoryContext(
+        recent_tasks=["search FastAPI -> found 3 files"], preferences={"sort_order": "newest first"}
+    )
+
+    await planner.plan("find TODOs", _FakeCatalog(), memory_context)
+
+    sent_messages = str(client.calls[0][1]["messages"])
+    assert "search FastAPI -> found 3 files" in sent_messages
+    assert "sort_order: newest first" in sent_messages
+
+
+@pytest.mark.anyio
+async def test_plan_without_memory_context_omits_memory_block():
+    plan_json = Plan(goal="find todos", steps=[])
+    client = _FakeClient(chat_content=plan_json.model_dump_json())
+    planner = Planner(client)
+
+    await planner.plan("find TODOs", _FakeCatalog())
+
+    sent_messages = str(client.calls[0][1]["messages"])
+    assert "Recent tasks" not in sent_messages
+    assert "preferences" not in sent_messages.lower()
 
 
 @pytest.mark.anyio
