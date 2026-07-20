@@ -61,7 +61,7 @@ class Orchestrator:
         results = await self._execute_steps(plan.steps[: self._max_steps])
 
         replans_used = 0
-        while any(r.is_error for r in results) and replans_used < self._max_replans:
+        while not self._any_succeeded(results) and replans_used < self._max_replans:
             try:
                 plan = await self._planner.replan(task, self._tool_catalog, plan, results)
             except PlanningError:
@@ -69,23 +69,32 @@ class Orchestrator:
             results = await self._execute_steps(plan.steps[: self._max_steps])
             replans_used += 1
 
+        if not self._any_succeeded(results):
+            # Nothing actually ran (an empty plan -- e.g. the model decided no tool was
+            # needed when one was required -- or every step errored). Report this as a
+            # failure directly rather than asking the LLM to "verify" a run with no
+            # results: it has nothing real to judge and will otherwise happily hallucinate
+            # a "satisfied: true" answer to the task from its own knowledge, which looks
+            # like a successful run but did none of the requested work.
+            message = "The plan had no steps to execute" if not results else "No step completed successfully"
+            return TaskOutcome(
+                task=task, status="failed", plan=plan, step_results=results, verification=None, message=message
+            )
+
         try:
             verification = await self._planner.verify(task, results)
         except PlanningError:
             verification = None
 
-        any_success = any(not r.is_error for r in results)
-        if verification is not None and verification.satisfied:
-            status: TaskStatus = "completed"
-        elif any_success:
-            status = "partial"
-        else:
-            status = "failed"
-
+        status: TaskStatus = "completed" if verification is not None and verification.satisfied else "partial"
         message = verification.notes if verification is not None else "verification unavailable"
         return TaskOutcome(
             task=task, status=status, plan=plan, step_results=results, verification=verification, message=message
         )
+
+    @staticmethod
+    def _any_succeeded(results: list[StepResult]) -> bool:
+        return any(not r.is_error for r in results)
 
     async def _run_fixed_plan(self, task: str, tool: str, arguments: dict[str, Any] | None) -> TaskOutcome:
         """The M3 "Planner v0" path: a single-step Plan built directly (no LLM call anywhere

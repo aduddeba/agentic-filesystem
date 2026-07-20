@@ -41,6 +41,7 @@ class _FakePlanner:
     plan_error: Exception | None = None
     plan_calls: int = 0
     replan_calls: int = 0
+    verify_calls: int = 0
 
     async def plan(self, task: str, tool_catalog) -> Plan:
         self.plan_calls += 1
@@ -53,6 +54,7 @@ class _FakePlanner:
         return self.plans[min(self.replan_calls, len(self.plans) - 1)]
 
     async def verify(self, task: str, results) -> VerificationOutcome:
+        self.verify_calls += 1
         assert self.verification is not None
         return self.verification
 
@@ -133,6 +135,43 @@ async def test_run_task_replans_on_failure_up_to_max_replans():
 
     assert planner.replan_calls == 2
     assert outcome.status == "failed"
+
+
+@pytest.mark.anyio
+async def test_run_task_with_zero_step_plan_is_reported_as_failed_not_completed():
+    """Regression: a plan with 0 steps (the model decided no tool was needed, even
+    though the task required one) must never come back "completed" just because the
+    verification LLM call hallucinated satisfied=True with nothing real to judge."""
+    empty_plan = Plan(goal="find TODOs", steps=[])
+    planner = _FakePlanner(
+        plans=[empty_plan], verification=VerificationOutcome(satisfied=True, notes="hallucinated success")
+    )
+    orchestrator = Orchestrator(client=_FakeClient(), tool_catalog=object(), planner=planner, agents=[SearchAgent()])
+
+    outcome = await orchestrator.run_task("find TODOs")
+
+    assert outcome.status == "failed"
+    assert outcome.step_results == []
+    assert outcome.verification is None
+    assert planner.verify_calls == 0
+    assert "no steps" in outcome.message.lower()
+
+
+@pytest.mark.anyio
+async def test_run_task_replans_when_plan_has_zero_steps():
+    empty_plan = Plan(goal="find TODOs", steps=[])
+    working_plan = Plan(goal="find TODOs", steps=[PlanStep(tool="search.keyword", arguments={"query": "TODO"})])
+    client = _FakeClient(responses={"search.keyword": {"matches": [{"path": "a.txt"}]}})
+    planner = _FakePlanner(
+        plans=[empty_plan, working_plan], verification=VerificationOutcome(satisfied=True, notes="found it")
+    )
+    orchestrator = Orchestrator(client=client, tool_catalog=object(), planner=planner, agents=[SearchAgent()])
+
+    outcome = await orchestrator.run_task("find TODOs")
+
+    assert planner.replan_calls == 1
+    assert outcome.status == "completed"
+    assert client.calls == ["search.keyword"]
 
 
 @pytest.mark.anyio
